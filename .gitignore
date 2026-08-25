@@ -1,0 +1,15 @@
+# 환경 변수 / API 키 (절대 커밋 금지)
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 생성된 초안 저장 파일 (개인 데이터이므로 제외)
+outputs/
+
+# OS
+.DS_Store
+Thumbs.db

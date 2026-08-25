@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI 제목+본문 초안 생성기</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --card: #ffffff;
+    --border: #e5e5e0;
+    --text: #1f1f1f;
+    --muted: #6b6b66;
+    --accent: #2f6b4f;
+    --accent-hover: #244f3b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Pretendard", "Malgun Gothic", -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 40px 16px;
+  }
+  .wrap { width: 100%; max-width: 760px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .tab-btn {
+    background: #efefe9;
+    color: var(--text);
+    border: none;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .tab-btn.active { background: var(--accent); color: #fff; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input[type=text], select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 11px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent-hover); }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  button.secondary { background: #efefe9; color: var(--text); }
+  button.secondary:hover { background: #e2e2da; }
+  button.danger { background: #b3261e; }
+  button.danger:hover { background: #8f1e17; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .result { display: none; }
+  .result h2 { font-size: 15px; margin: 0 0 8px; }
+  pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #fafaf7;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .copy-btn {
+    background: #efefe9;
+    color: var(--text);
+    font-size: 12px;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+  }
+  .copy-btn:hover { background: #e2e2da; }
+  .warn {
+    background: #fff8e6;
+    border: 1px solid #f0dca0;
+    color: #6b5300;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .error { color: #b3261e; font-size: 13px; margin-top: 8px; display: none; }
+  .loading { font-size: 13px; color: var(--muted); display: none; margin-top: 8px; }
+  .saved-msg { color: var(--accent); font-size: 13px; margin-top: 8px; display: none; }
+  .img-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .img-grid figure {
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .img-grid img { width: 100%; height: 100px; object-fit: cover; display: block; }
+  .img-grid figcaption {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 6px 8px;
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .img-grid figcaption a { color: var(--accent); text-decoration: none; }
+  .history-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .history-item .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .history-item .topic { font-weight: 600; font-size: 14px; }
+  .history-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .history-item button { padding: 6px 12px; font-size: 12px; }
+  .empty { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI 제목 + 본문 초안 생성기</h1>
+  <div class="sub">주제를 입력하면 후킹 제목, 경험담 톤 본문, 관련 무료 이미지를 만들어줍니다. 생성된 글은 반드시 사실관계를 확인하고 수정한 뒤 직접 게시하세요.</div>
+
+  {% if not has_key %}
+  <div class="warn">
+    ⚠️ GEMINI_API_KEY가 설정되어 있지 않습니다. <code>.env</code>에 키를 넣은 뒤 서버를 재시작해주세요.
+  </div>
+  {% endif %}
+  {% if not has_image_key %}
+  <div class="warn">
+    ⚠️ PIXABAY_API_KEY가 설정되어 있지 않아 이미지 검색 기능을 쓸 수 없습니다. <a href="https://pixabay.com/api/docs/" target="_blank">pixabay.com/api/docs</a>에서 무료로 키를 발급받아 <code>.env</code>에 추가해주세요.
+  </div>
+  {% endif %}
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="create" onclick="switchTab('create')">새로 만들기</button>
+    <button class="tab-btn" data-tab="history" onclick="switchTab('history')">저장된 초안</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-create">
+    <div class="card">
+      <label for="topic">주제 / 키워드</label>
+      <input id="topic" type="text" placeholder="예: 여름철 자동차 에어컨 냄새 없애는 법" />
+
+      <label for="tone">톤 / 느낌</label>
+      <select id="tone">
+        <option>친근하고 담백한 경험담 느낌</option>
+        <option>정보성 + 신뢰감 있는 전문가 느낌</option>
+        <option>솔직 후기 + 공감형</option>
+        <option>유쾌하고 캐주얼한 느낌</option>
+      </select>
+
+      <div class="btn-row">
+        <button id="generateBtn" onclick="generate()">초안 생성하기</button>
+        <button id="imageBtn" class="secondary" onclick="searchImages()">관련 이미지 검색</button>
+      </div>
+      <div class="loading" id="loading">처리 중입니다... (몇 초 정도 걸릴 수 있어요)</div>
+      <div class="error" id="error"></div>
+    </div>
+
+    <div class="card result" id="titlesCard">
+      <h2>제목 후보</h2>
+      <button class="copy-btn" onclick="copyText('titlesText')">복사</button>
+      <pre id="titlesText"></pre>
+    </div>
+
+    <div class="card result" id="bodyCard">
+      <h2>본문 초안</h2>
+      <div class="btn-row" style="margin-bottom: 10px;">
+        <button class="copy-btn" onclick="copyText('bodyText')">복사</button>
+        <button class="copy-btn" onclick="saveDraft()">초안 저장</button>
+      </div>
+      <pre id="bodyText"></pre>
+      <div class="saved-msg" id="savedMsg">✅ 저장되었습니다. "저장된 초안" 탭에서 확인하세요.</div>
+    </div>
+
+    <div class="card result" id="imagesCard">
+      <h2>관련 이미지 (Pixabay, 저작권 프리)</h2>
+      <div class="empty" id="imagesQuery"></div>
+      <div class="img-grid" id="imagesGrid"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-history">
+    <div class="card">
+      <div id="historyList"><div class="empty">불러오는 중...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'history') loadHistory();
+}
+
+function showError(msg) {
+  const box = document.getElementById('error');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+
+async function generate() {
+  const topic = document.getElementById('topic').value.trim();
+  const tone = document.getElementById('tone').value;
+  const btn = document.getElementById('generateBtn');
+  const loading = document.getElementById('loading');
+  const errorBox = document.getElementById('error');
+
+  errorBox.style.display = 'none';
+  document.getElementById('titlesCard').style.display = 'none';
+  document.getElementById('bodyCard').style.display = 'none';
+  document.getElementById('savedMsg').style.display = 'none';
+
+  if (!topic) { showError('주제를 입력해주세요.'); return; }
+
+  btn.disabled = true;
+  loading.style.display = 'block';
+
+  try {
+    const res = await fetch('/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, tone })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '알 수 없는 오류가 발생했습니다.');
+
+    document.getElementById('titlesText').textContent = data.titles;
+    document.getElementById('bodyText').textContent = data.body;
+    document.getElementById('titlesCard').style.display = 'block';
+    document.getElementById('bodyCard').style.display = 'block';
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    loading.style.display = 'none';
+  }
+}
+
+async function searchImages() {
+  const topic = document.getElementById('topic').value.trim();
+  const btn = document.getElementById('imageBtn');
+  const loading = document.getElementById('loading');
+  const errorBox = document.getElementById('error');
+
+  errorBox.style.display = 'none';
+  document.getElementById('imagesCard').style.display = 'none';
+
+  if (!topic) { showError('주제를 입력해주세요.'); return; }
+
+  btn.disabled = true;
+  loading.style.display = 'block';
+
+  try {
+    const res = await fetch('/search-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '알 수 없는 오류가 발생했습니다.');
+
+    const grid = document.getElementById('imagesGrid');
+    grid.innerHTML = '';
+    document.getElementById('imagesQuery').textContent = '검색어: ' + data.query;
+
+    if (!data.images.length) {
+      grid.innerHTML = '<div class="empty">검색 결과가 없습니다.</div>';
+    } else {
+      data.images.forEach(img => {
+        const fig = document.createElement('figure');
+        fig.innerHTML = `
+          <a href="${img.page}" target="_blank"><img src="${img.thumb}" loading="lazy" /></a>
+          <figcaption>
+            <span>by ${img.user}</span>
+            <a href="${img.full}" target="_blank">원본</a>
+          </figcaption>`;
+        grid.appendChild(fig);
+      });
+    }
+    document.getElementById('imagesCard').style.display = 'block';
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    loading.style.display = 'none';
+  }
+}
+
+async function saveDraft() {
+  const topic = document.getElementById('topic').value.trim();
+  const tone = document.getElementById('tone').value;
+  const titles = document.getElementById('titlesText').textContent;
+  const body = document.getElementById('bodyText').textContent;
+
+  try {
+    const res = await fetch('/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, tone, titles, body })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '저장 중 오류가 발생했습니다.');
+
+    const msg = document.getElementById('savedMsg');
+    msg.style.display = 'block';
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+async function loadHistory() {
+  const listEl = document.getElementById('historyList');
+  listEl.innerHTML = '<div class="empty">불러오는 중...</div>';
+
+  try {
+    const res = await fetch('/history');
+    const data = await res.json();
+    if (!data.items.length) {
+      listEl.innerHTML = '<div class="empty">저장된 초안이 없습니다.</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    data.items.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = `
+        <div>
+          <div class="topic">${item.topic}</div>
+          <div class="meta">${item.created_at}</div>
+        </div>
+        <div class="actions">
+          <button class="secondary" onclick="viewHistoryItem('${item.id}')">보기</button>
+          <button class="danger" onclick="deleteHistoryItem('${item.id}')">삭제</button>
+        </div>`;
+      listEl.appendChild(div);
+    });
+  } catch (err) {
+    listEl.innerHTML = '<div class="empty">불러오기에 실패했습니다.</div>';
+  }
+}
+
+async function viewHistoryItem(id) {
+  const res = await fetch('/history/' + encodeURIComponent(id));
+  const data = await res.json();
+  if (!res.ok) { showError(data.error || '불러오기에 실패했습니다.'); return; }
+
+  document.getElementById('topic').value = data.topic || '';
+  document.getElementById('titlesText').textContent = data.titles || '';
+  document.getElementById('bodyText').textContent = data.body || '';
+  document.getElementById('titlesCard').style.display = 'block';
+  document.getElementById('bodyCard').style.display = 'block';
+  document.getElementById('savedMsg').style.display = 'none';
+  switchTab('create');
+}
+
+async function deleteHistoryItem(id) {
+  if (!confirm('이 초안을 삭제할까요?')) return;
+  await fetch('/history/' + encodeURIComponent(id), { method: 'DELETE' });
+  loadHistory();
+}
+
+function copyText(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text);
+}
+</script>
+</body>
+</html>
